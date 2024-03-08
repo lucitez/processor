@@ -25,12 +25,12 @@ func main() {
 
 	switch *pFlag {
 	case "is_even":
-		filename = "oddeven.txt"
+		filename = "files/oddeven.txt"
 		g = generate.OddEvenGenerator{}
 		p = &process.CountEvensProcessor{}
 		p.Setup()
 	case "urls":
-		filename = "urls.txt"
+		filename = "files/urls.txt"
 		g = generate.UrlGenerator{}
 		p = &process.PingNetworkProcessor{}
 		p.Setup()
