@@ -1,6 +1,7 @@
 package pagereader
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 )
 
 // only take the path before query strings, anchors, etc.
+// TODO make this better
 func sanitizeLocalHref(href string) string {
 	var re = regexp.MustCompile(`(/[-_\.\da-zA-Z]*)+`)
 
@@ -19,11 +21,17 @@ func sanitizeLocalHref(href string) string {
 }
 
 type Tokenizerer interface {
+	URL() string
 	Tokenizer() (tokenizer *html.Tokenizer, close func())
 }
 
-func getHrefs(pr Tokenizerer, processHref func(string)) {
-	tokenizer, close := pr.Tokenizer()
+func getHrefs(tk Tokenizerer, processHref func(string)) {
+	tokenizer, close := tk.Tokenizer()
+
+	if tokenizer == nil {
+		fmt.Printf("Could not create tokenizer for %s\n", tk.URL())
+		return
+	}
 
 	for {
 		tt := tokenizer.Next()

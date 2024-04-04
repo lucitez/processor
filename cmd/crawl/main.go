@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"sync"
 	"time"
 
-	"github.com/lucitez/processor/crawl"
-	"github.com/lucitez/processor/util"
+	crawl "github.com/lucitez/processor/crawler"
+	"github.com/lucitez/processor/generator"
 )
 
 var TEST_URL = "https://go.dev"
@@ -14,19 +16,24 @@ func main() {
 	before := time.Now()
 
 	urlChan := make(chan string)
-	safeMap := util.SafeMapCounter[string]{SMap: make(map[string]int)}
 
 	fmt.Println("crawling...")
 
-	go crawl.Crawl(TEST_URL, 0, urlChan, &safeMap)
+	go crawl.Crawl(TEST_URL, 0, urlChan, &sync.Map{})
 
-	urls := []string{}
+	file, err := os.Create("files/crawl.txt")
+
+	if err != nil {
+		panic(err)
+	}
+
+	file.Truncate(0) // clear file
 
 	for url := range urlChan {
-		urls = append(urls, url)
+		generator.WriteToFile(fmt.Sprintf("%s\n", url), *file)
 	}
 
 	duration := time.Since(before)
 
-	fmt.Printf("Found %d urls in %f seconds", len(urls), duration.Seconds())
+	fmt.Printf("Wrote file in %f seconds", duration.Seconds())
 }

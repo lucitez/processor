@@ -1,4 +1,4 @@
-package generate
+package generator
 
 import (
 	"fmt"
@@ -7,7 +7,11 @@ import (
 	"time"
 )
 
-func List(gen Generator, filename string, numLines int) error {
+type LineWriter interface {
+	createLine() string
+}
+
+func writeLines(gen LineWriter, filename string, numLines int) error {
 	file, err := os.Create(filename)
 
 	if err != nil {
@@ -25,16 +29,14 @@ func List(gen Generator, filename string, numLines int) error {
 		go func(ind int) {
 			line := gen.createLine()
 
-			writeToFile(line, *file)
+			WriteToFile(line, *file)
 			wg.Done()
 		}(i)
 	}
 
 	wg.Wait()
 
-	end := time.Now()
-
-	fmt.Printf("Wrote file in %d milliseconds\n", end.Sub(start).Milliseconds())
+	fmt.Printf("Wrote file in %d milliseconds\n", time.Since(start).Milliseconds())
 
 	return nil
 }

@@ -4,14 +4,14 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/lucitez/processor/generate"
-	"github.com/lucitez/processor/process"
+	"github.com/lucitez/processor/generator"
+	"github.com/lucitez/processor/processor"
 )
 
 func main() {
 	var gFlag = flag.Bool("g", false, "boolean: generate a new file for this run")
 
-	var pFlag = flag.String("p", "is_even", "is_even; urls")
+	var pFlag = flag.String("p", "is_even", "is_even; urls; weblinks")
 
 	var nFlag = flag.Int("n", 1000, "int: number of lines to generate")
 
@@ -19,20 +19,25 @@ func main() {
 
 	flag.Parse()
 
-	var g generate.Generator
-	var p process.Processor
+	var g generator.Generator
+	var p processor.Processor
 	var filename string
 
 	switch *pFlag {
 	case "is_even":
 		filename = "files/oddeven.txt"
-		g = generate.OddEvenGenerator{}
-		p = &process.CountEvensProcessor{}
+		g = generator.OddEvenGenerator{NumLines: *nFlag}
+		p = &processor.CountEvensProcessor{}
 		p.Setup()
 	case "urls":
 		filename = "files/urls.txt"
-		g = generate.UrlGenerator{}
-		p = &process.PingNetworkProcessor{}
+		g = generator.UrlGenerator{NumLines: *nFlag}
+		p = &processor.PingNetworkProcessor{}
+		p.Setup()
+	case "weblinks":
+		filename = "files/weblinks.txt"
+		g = generator.WebLinksGenerator{BaseUrl: "https://facebook.com"} // make this a cli arg
+		p = &processor.BenchmarkProcessor{}
 		p.Setup()
 	default:
 		fmt.Printf("Error parsing command line arguments.\n")
@@ -41,8 +46,11 @@ func main() {
 	}
 
 	if *gFlag {
-		generate.List(g, filename, *nFlag)
+		if err := g.WriteData(filename); err != nil {
+			fmt.Printf("Error writing to file, %s\n", err)
+		}
+
 	}
 
-	process.Run(p, filename, *cFlag)
+	processor.Run(p, filename, *cFlag)
 }

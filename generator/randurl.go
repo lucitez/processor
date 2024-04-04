@@ -1,17 +1,17 @@
-package generate
+package generator
 
 import (
 	"fmt"
 	"math/rand"
 )
 
-type OddEvenGenerator struct{}
-
-func (oeg OddEvenGenerator) createLine() string {
-	return fmt.Sprintf("%d\n", rand.Intn(10))
+type UrlGenerator struct {
+	NumLines int
 }
 
-type UrlGenerator struct{}
+func (ug UrlGenerator) WriteData(filename string) error {
+	return writeLines(ug, filename, ug.NumLines)
+}
 
 func (ug UrlGenerator) createLine() string {
 	urls := []string{"http://www.google.com/robots.txt", "http://golang.org", "http://dave.com", "http://ziprecruiter.com", "http://bogusurl.org", "http://google.com/invalid-url"}

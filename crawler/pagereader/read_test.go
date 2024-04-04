@@ -58,6 +58,10 @@ func (mp *MockParser) Tokenizer() (*html.Tokenizer, func()) {
 	return tokenizer, func() {}
 }
 
+func (mp *MockParser) URL() string {
+	return "mock url"
+}
+
 func TestGetHrefs(t *testing.T) {
 	mockParser := &MockParser{}
 

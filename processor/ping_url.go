@@ -1,4 +1,4 @@
-package process
+package processor
 
 import (
 	"fmt"
@@ -19,6 +19,7 @@ type PingNetwork struct {
 
 // next step, record average response time for each url
 func (ie *PingNetwork) process() {
+	fmt.Println(ie.url)
 	start := time.Now()
 
 	conn, err := http.Get(ie.url)
@@ -63,9 +64,9 @@ func (ief PingNetworkProcessor) create(str string) (task, error) {
 }
 
 func (ief PingNetworkProcessor) print() {
-	codes := ief.responseCodes.Get()
-	errors := ief.errors.Get()
-	urls := ief.urlsVisited.Get()
+	codes := ief.responseCodes.Map()
+	errors := ief.errors.Map()
+	urls := ief.urlsVisited.Map()
 
 	fmt.Printf("\nErrors\n\n")
 
@@ -83,7 +84,7 @@ func (ief PingNetworkProcessor) print() {
 
 	// TODO sort by latency
 	for url, timesVisited := range urls {
-		averageResponseTime := float32(ief.urlResponseTimes.Access(url)) / float32(timesVisited)
+		averageResponseTime := float32(ief.urlResponseTimes.Get(url)) / float32(timesVisited)
 
 		fmt.Printf("%s: %.2fms\n", url, averageResponseTime)
 	}

@@ -10,28 +10,33 @@ import (
 type LocalLinkReader struct {
 	parsedUrl *url.URL
 	getPage   func(string) (*http.Response, error)
+	page      *http.Response
 }
 
 func NewLocalLinkReader(rawUrl string, getPage func(string) (*http.Response, error)) (*LocalLinkReader, error) {
 	parsedUrl, err := url.Parse(rawUrl)
-
 	if err != nil {
 		return nil, err
 	}
 
-	return &LocalLinkReader{parsedUrl, getPage}, nil
+	resp, err := getPage(parsedUrl.String())
+	if err != nil {
+		return nil, err
+	}
+
+	localLinkReader := LocalLinkReader{parsedUrl, getPage, resp}
+
+	return &localLinkReader, nil
 }
 
 func (pr *LocalLinkReader) Tokenizer() (tokenizer *html.Tokenizer, close func()) {
-	resp, err := pr.getPage(pr.parsedUrl.String())
-
-	if err != nil {
-		panic(err)
+	return html.NewTokenizer(pr.page.Body), func() {
+		pr.page.Body.Close()
 	}
+}
 
-	return html.NewTokenizer(resp.Body), func() {
-		resp.Body.Close()
-	}
+func (pr *LocalLinkReader) URL() string {
+	return pr.parsedUrl.String()
 }
 
 func (pr *LocalLinkReader) Read(processUrl func(string)) []string {
