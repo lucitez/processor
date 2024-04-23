@@ -26,12 +26,12 @@ func writeLines(gen LineWriter, filename string, numLines int) error {
 
 	for i := 0; i < numLines; i++ {
 		wg.Add(1)
-		go func(ind int) {
+		go func() {
 			line := gen.createLine()
 
 			WriteToFile(line, *file)
 			wg.Done()
-		}(i)
+		}()
 	}
 
 	wg.Wait()

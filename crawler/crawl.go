@@ -12,7 +12,7 @@ import (
 	"github.com/lucitez/processor/crawler/pagereader"
 )
 
-var MAX_DEPTH = 20
+var MAX_DEPTH = 2
 var client = http.Client{
 	Timeout: time.Second * 5,
 	// do not allow redirects to a different host from the original request
@@ -29,6 +29,16 @@ var client = http.Client{
 	},
 }
 
+/*
+Crawl recursively visits urls until it reaches the MAX_DEPTH or runs out of urls to crawl.
+
+url: the url to visit. caller should pass the root url of the website to crawl.
+depth: the depth of the current search. caller *must* pass 0.
+out: the channel to which each visited url will be sent
+safemap: a way to cache visited urls. caller can pass an empty sync.Map pointer
+
+!!! depth _must_ be passed as 0 by the original caller, or else the channel will never close. !!!
+*/
 func Crawl(url string, depth int, out chan<- string, safemap *sync.Map) {
 	if depth == 0 {
 		defer close(out)
@@ -42,7 +52,7 @@ func Crawl(url string, depth int, out chan<- string, safemap *sync.Map) {
 
 	// There was a problem accessing the url, likely due to a disallowed redirect
 	if err != nil {
-		fmt.Println(err)
+		// fmt.Println(err) this can get noisy. TODO add a verbose flag
 		return
 	}
 

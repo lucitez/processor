@@ -26,7 +26,6 @@ func (wlg WebLinksGenerator) WriteData(filename string) error {
 	start := time.Now()
 
 	urlChan := make(chan string)
-	// safeMap := util.SafeMapBoolean[string]{SMap: make(map[string]bool)}
 
 	fmt.Println("crawling...")
 
