@@ -1,10 +1,21 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 )
+
+type Message struct {
+	Type  string
+	Value any
+}
+
+type CustomMessage struct {
+	FieldA string
+	FieldB string
+}
 
 func main() {
 	listener, err := net.Listen("tcp", ":8000")
@@ -27,30 +38,35 @@ func main() {
 		go func(c net.Conn) {
 			defer c.Close()
 
-			b := make([]byte, 1024)
+			dec := json.NewDecoder(c)
 
 			for {
-				n, err := c.Read(b)
-
-				if err != nil {
-					fmt.Println(err)
+				m := Message{}
+				if err := dec.Decode(&m); err != nil {
+					fmt.Printf("Error decoding message %v\n", err)
 					return
 				}
 
-				fmt.Printf("%s\n", b[:n])
+				fmt.Printf("%v\n", m.Value)
 
-				if string(b[:n]) == "close" {
-					return
+				switch m.Type {
+				case "echo":
+					out := []byte(m.Value.(string))
+					c.Write(append(out, '\n'))
+				case "custom":
+					customMessage := CustomMessage(m.Value.(map[string]interface{}))
+					fmt.Printf("FieldA is %s, FieldB is %s\n", customMessage.FieldA, customMessage.FieldB)
+				default:
+
+					if m.Value == "close" {
+						return
+					}
+
+					if m.Value == "terminate" {
+						listener.Close()
+						return
+					}
 				}
-
-				if string(b[:n]) == "terminate" {
-					listener.Close()
-					return
-				}
-
-				out := b[:n]
-				out = append(out, '\n')
-				c.Write(out)
 			}
 		}(conn)
 	}

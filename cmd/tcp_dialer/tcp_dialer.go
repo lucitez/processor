@@ -3,18 +3,24 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 )
 
-type message struct {
-	mType string
-	value string
+type Message struct {
+	Type  string
+	Value any
+}
+
+type CustomMessage struct {
+	FieldA string
+	FieldB string
 }
 
 func main() {
@@ -29,29 +35,40 @@ func main() {
 
 	scanner := bufio.NewScanner(os.Stdin)
 
-	enc := gob.NewEncoder(conn)
+	enc := json.NewEncoder(conn)
 
 	defer conn.Close()
 
 	for {
 		// pipe stdin to tcp connection
 		if scanner.Scan() {
-			if err := enc.Encode(message{"bing", scanner.Text()}); err != nil {
+			input := scanner.Text()
+			var message Message
+			switch input {
+			case "echo":
+				message = Message{Type: "echo", Value: input}
+			case "custom":
+				message = Message{Type: "custom", Value: CustomMessage{FieldA: "foo", FieldB: "bar"}}
+			default:
+				message = Message{Type: "message", Value: input}
+			}
+
+			if err := enc.Encode(message); err != nil {
 				log.Fatal(err)
 			}
 		}
 
-		status, err := bufio.NewReader(conn).ReadString('\n')
-
-		if err != nil {
-			if err == io.EOF {
-				fmt.Println("Connection terminated")
-			} else {
-				fmt.Printf("An error occurred while reading from server %v\n", err)
-			}
+		msg, err := bufio.NewReader(conn).ReadString('\n')
+		switch {
+		case err == io.EOF:
+			fmt.Println("Connection terminated")
+			return
+		case err != nil:
+			fmt.Printf("An error occurred while reading from server %v\n", err)
 			return
 		}
 
-		fmt.Println(status)
+		msg = strings.Trim(msg, "\n")
+		fmt.Println(msg)
 	}
 }
