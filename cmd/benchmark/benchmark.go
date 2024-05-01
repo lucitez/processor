@@ -9,5 +9,5 @@ const URL = "https://go.dev"
 func main() {
 	b := benchmarker.New(URL)
 
-	b.BenchmarkWebsite()
+	b.BenchmarkWebsite(func(p benchmarker.Performance) {})
 }

@@ -18,26 +18,27 @@ func New(u string) Benchmarker {
 	return Benchmarker{u}
 }
 
-func (b Benchmarker) BenchmarkWebsite() {
+func (b Benchmarker) BenchmarkWebsite(onUrl func(Performance)) {
 	logger.Printf("Benchmarking %s...\n", b.BaseURL)
 
 	start := time.Now()
 
 	urls := make(chan string)
-	pch := make(chan performance)
+	pch := make(chan Performance)
 
 	go crawler.Crawl(b.BaseURL, 0, urls, &sync.Map{})
 	go processUrls(urls, pch)
 
-	performances := []performance{}
+	performances := []Performance{}
 
 	// todo insertion sort as we get them from the chan
 	for performance := range pch {
+		onUrl(performance)
 		performances = append(performances, performance)
 	}
 
 	sort.Slice(performances, func(i, j int) bool {
-		return performances[i].latency > performances[j].latency
+		return performances[i].Latency > performances[j].Latency
 	})
 
 	for _, ping := range performances {
@@ -47,9 +48,9 @@ func (b Benchmarker) BenchmarkWebsite() {
 	logger.Printf("Executed in %d millis\n", time.Since(start).Milliseconds())
 }
 
-type performance struct {
-	url     string
-	latency int64 // millis
+type Performance struct {
+	Url     string `json:"url"`
+	Latency int64  `json:"latency"`
 }
 
 var logger = log.Default()
@@ -57,9 +58,8 @@ var logger = log.Default()
 // benchmark requests the url 10 times, takes the average latency, returns a ping with that latency.
 // bottleneck is here, this whole program is only as fast as the slowest crawled url.
 // in UI, we should show progress instead of blocking while we wait for all urls.
-func benchmarkURL(url string) performance {
+func benchmarkURL(url string) Performance {
 	latencyChan := make(chan int64, 10)
-	logger.Printf("Testing %s...\n", url)
 
 	// TODO handle non 200 responses, errors, and timeouts
 	// we are possibly skewing by returning early, not to mention introducing
@@ -67,7 +67,6 @@ func benchmarkURL(url string) performance {
 	for i := 0; i < 10; i++ {
 		go func() {
 			start := time.Now()
-			logger.Printf("Getting %s...\n", url)
 
 			_, err := http.Get(url)
 
@@ -84,7 +83,7 @@ func benchmarkURL(url string) performance {
 		totalLatencyMillis += <-latencyChan
 	}
 
-	return performance{
+	return Performance{
 		url,
 		int64(totalLatencyMillis / 10),
 	}
@@ -92,7 +91,7 @@ func benchmarkURL(url string) performance {
 
 // as the crawler sends urls in the url chan, send them to the benchmarker.
 // once each url has been benchmarked, close the performance chan.
-func processUrls(urls <-chan string, pc chan<- performance) {
+func processUrls(urls <-chan string, pc chan<- Performance) {
 	wg := sync.WaitGroup{}
 	for url := range urls {
 		wg.Add(1)

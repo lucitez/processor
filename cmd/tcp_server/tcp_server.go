@@ -7,7 +7,10 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
+
+	"github.com/lucitez/processor/benchmarker"
 )
 
 type Message struct {
@@ -33,50 +36,64 @@ func main() {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			if err == net.ErrClosed {
-				fmt.Println("Connection closed")
-				return
-			}
-			log.Fatal(err)
+			fmt.Println("Connection closed")
+			os.Exit(1)
 		}
 
-		go func(c net.Conn) {
-			defer c.Close()
-
-			reader := bufio.NewReader(c)
-
-			for {
-				message, err := reader.ReadString('\n')
-				switch {
-				case err == io.EOF:
-					fmt.Println("Client connection terminated")
-					return
-				case err != nil:
-					fmt.Printf("An error occurred while reading from client %v\n", err)
-					return
-				}
-
-				msgType, msgVal := extractMsg(message)
-
-				fmt.Printf("Message type: %v\n", strings.TrimSpace(msgType))
-
-				// Then handle the message according to its type
-				switch msgType {
-				case "custom":
-					m := Message{}
-					json.Unmarshal([]byte(msgVal), &m)
-					fmt.Printf("custom is %v\n", m)
-				case "close":
-					return
-				case "terminate":
-					listener.Close()
-					return
-				default:
-					c.Write([]byte("echo: " + message + "\n"))
-				}
-			}
-		}(conn)
+		go handleConnection(listener, conn)
 	}
+}
+
+func handleConnection(listener net.Listener, conn net.Conn) {
+	defer conn.Close()
+
+	reader := bufio.NewReader(conn)
+
+	for {
+		message, err := reader.ReadString('\n')
+		switch {
+		case err == io.EOF:
+			fmt.Println("Client connection terminated")
+			return
+		case err != nil:
+			fmt.Printf("An error occurred while reading from client %v\n", err)
+			return
+		}
+
+		msgType, msgVal := extractMsg(message)
+
+		fmt.Printf("Message type: %v\n", strings.TrimSpace(msgType))
+
+		// Then handle the message according to its type
+		switch msgType {
+		case "custom":
+			m := Message{}
+			json.Unmarshal([]byte(msgVal), &m)
+			fmt.Printf("custom is %v\n", m)
+		case "benchmark":
+			handleBenchmark(conn, msgVal)
+		case "close":
+			return
+		case "terminate":
+			listener.Close()
+			return
+		default:
+			conn.Write([]byte("echo: " + message + "\n"))
+		}
+	}
+}
+
+func handleBenchmark(conn net.Conn, url string) {
+	b := benchmarker.New(url)
+
+	conn.Write([]byte("Benchmarking " + url + "\n"))
+
+	b.BenchmarkWebsite(func(p benchmarker.Performance) {
+		asJson, _ := json.Marshal(p)
+		conn.Write(append(asJson, '\n'))
+	})
+
+	conn.Write([]byte("Benchmarking complete\n"))
 }
 
 func extractMsg(msg string) (string, string) {
@@ -90,5 +107,5 @@ func extractMsg(msg string) (string, string) {
 		msgVal = splitMsg[1]
 	}
 
-	return msgType, msgVal
+	return strings.TrimSpace(msgType), strings.TrimSpace(msgVal)
 }
