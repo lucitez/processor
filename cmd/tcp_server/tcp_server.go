@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"strings"
 )
 
 type Message struct {
@@ -23,6 +26,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println("Listening on port 8000")
+
 	defer listener.Close()
 
 	for {
@@ -38,36 +43,52 @@ func main() {
 		go func(c net.Conn) {
 			defer c.Close()
 
-			dec := json.NewDecoder(c)
+			reader := bufio.NewReader(c)
 
 			for {
-				m := Message{}
-				if err := dec.Decode(&m); err != nil {
-					fmt.Printf("Error decoding message %v\n", err)
+				message, err := reader.ReadString('\n')
+				switch {
+				case err == io.EOF:
+					fmt.Println("Client connection terminated")
+					return
+				case err != nil:
+					fmt.Printf("An error occurred while reading from client %v\n", err)
 					return
 				}
 
-				fmt.Printf("%v\n", m.Value)
+				msgType, msgVal := extractMsg(message)
 
-				switch m.Type {
-				case "echo":
-					out := []byte(m.Value.(string))
-					c.Write(append(out, '\n'))
+				fmt.Printf("Message type: %v\n", strings.TrimSpace(msgType))
+
+				// Then handle the message according to its type
+				switch msgType {
 				case "custom":
-					customMessage := CustomMessage(m.Value.(map[string]interface{}))
-					fmt.Printf("FieldA is %s, FieldB is %s\n", customMessage.FieldA, customMessage.FieldB)
+					m := Message{}
+					json.Unmarshal([]byte(msgVal), &m)
+					fmt.Printf("custom is %v\n", m)
+				case "close":
+					return
+				case "terminate":
+					listener.Close()
+					return
 				default:
-
-					if m.Value == "close" {
-						return
-					}
-
-					if m.Value == "terminate" {
-						listener.Close()
-						return
-					}
+					c.Write([]byte("echo: " + message + "\n"))
 				}
 			}
 		}(conn)
 	}
+}
+
+func extractMsg(msg string) (string, string) {
+	splitMsg := strings.Split(msg, ";")
+
+	msgType := splitMsg[0]
+
+	msgVal := ""
+
+	if len(splitMsg) > 1 {
+		msgVal = splitMsg[1]
+	}
+
+	return msgType, msgVal
 }

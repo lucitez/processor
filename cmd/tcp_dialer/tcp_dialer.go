@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -33,42 +32,46 @@ func main() {
 		log.Fatalf("Failed to dial: %v", err)
 	}
 
+	fmt.Println("Connected to server")
+
+	go readMessages(conn)
+
 	scanner := bufio.NewScanner(os.Stdin)
 
-	enc := json.NewEncoder(conn)
+	for scanner.Scan() {
+		input := scanner.Text()
 
-	defer conn.Close()
-
-	for {
-		// pipe stdin to tcp connection
-		if scanner.Scan() {
-			input := scanner.Text()
-			var message Message
+		if len(input) > 0 {
 			switch input {
-			case "echo":
-				message = Message{Type: "echo", Value: input}
-			case "custom":
-				message = Message{Type: "custom", Value: CustomMessage{FieldA: "foo", FieldB: "bar"}}
+			case "custom;foo":
+				message := Message{Type: "custom", Value: CustomMessage{FieldA: "foo", FieldB: "bar"}}
+				asJson, _ := json.Marshal(message)
+				conn.Write(append(asJson, '\n'))
 			default:
-				message = Message{Type: "message", Value: input}
-			}
-
-			if err := enc.Encode(message); err != nil {
-				log.Fatal(err)
+				conn.Write(append([]byte(input), '\n'))
 			}
 		}
+	}
+}
 
+func readMessages(conn net.Conn) {
+	defer func() {
+		conn.Close()
+		os.Exit(1)
+	}()
+
+	for {
 		msg, err := bufio.NewReader(conn).ReadString('\n')
+
 		switch {
 		case err == io.EOF:
-			fmt.Println("Connection terminated")
+			fmt.Println("Server connection terminated")
 			return
 		case err != nil:
 			fmt.Printf("An error occurred while reading from server %v\n", err)
 			return
 		}
 
-		msg = strings.Trim(msg, "\n")
-		fmt.Println(msg)
+		fmt.Print(msg)
 	}
 }
